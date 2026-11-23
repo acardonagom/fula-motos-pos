@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario - Fula Motos</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1E1E1E; color: white; margin: 0; padding: 15px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .btn-volver { background-color: #555; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; }
+        .controles-busqueda { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .buscador, .filtro { width: 100%; padding: 12px; border-radius: 8px; border: none; background-color: #333; color: white; box-sizing: border-box; font-size: 16px; }
+        .repuesto-card { background-color: #2A2A2A; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border-left: 5px solid #2980B9; }
+        .agotado { border-left-color: #E74C3C; opacity: 0.7; }
+        .nombre { font-size: 18px; font-weight: bold; margin: 0 0 5px 0; color: #00FFFF; }
+        .detalles { font-size: 14px; color: #BBB; margin: 0; display: flex; justify-content: space-between;}
+        .stock { font-size: 20px; font-weight: bold; color: #2ECC71; }
+        .stock.rojo { color: #E74C3C; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2 style="margin: 0;">📦 Inventario</h2>
+        <a href="/dashboard" class="btn-volver">🔙 Volver</a>
+    </div>
+
+    <div class="controles-busqueda">
+        <input type="text" id="buscador" class="buscador" placeholder="🔍 Buscar por nombre o SKU..." onkeyup="filtrar()">
+        
+        <select id="filtro-categoria" class="filtro" onchange="filtrar()">
+            <option value="TODAS">📑 Todas las Categorías</option>
+            {% for cat in categorias %}
+            <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div id="lista-repuestos">
+        {% for item in repuestos %}
+        <div class="repuesto-card {% if item['stock'] <= 0 %}agotado{% endif %}" data-categoria="{{ item['categoria'] }}">
+            <h3 class="nombre">{{ item['nombre_repuesto'] }}</h3>
+            <div class="detalles">
+                <span>SKU: {{ item['sku'] }}<br>Ubicación: {{ item['ubicacion'] }}</span>
+                <span class="stock {% if item['stock'] <= item['stock_minimo'] %}rojo{% endif %}">
+                    Cant: {{ item['stock'] }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function filtrar() {
+            var texto = document.getElementById('buscador').value.toLowerCase();
+            var categoriaSeleccionada = document.getElementById('filtro-categoria').value;
+            var tarjetas = document.getElementsByClassName('repuesto-card');
+            
+            for (var i = 0; i < tarjetas.length; i++) {
+                // Obtenemos todo el texto de la tarjeta (incluye SKU y Nombre)
+                var contenido = tarjetas[i].innerText.toLowerCase(); 
+                var categoriaTarjeta = tarjetas[i].getAttribute('data-categoria');
+                
+                var coincideTexto = contenido.includes(texto);
+                var coincideCategoria = (categoriaSeleccionada === "TODAS" || categoriaTarjeta === categoriaSeleccionada);
+                
+                // Solo mostramos la tarjeta si cumple ambas condiciones
+                if (coincideTexto && coincideCategoria) {
+                    tarjetas[i].style.display = "";
+                } else {
+                    tarjetas[i].style.display = "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>

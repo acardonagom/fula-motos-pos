@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taller - Fula Motos</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1E1E1E; color: white; margin: 0; padding: 15px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .btn-volver { background-color: #555; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; }
+        .formulario { background-color: #2A2A2A; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .formulario h3 { margin-top: 0; color: #27AE60; border-bottom: 1px solid #444; padding-bottom: 5px; }
+        input, textarea { width: 100%; padding: 10px; margin: 5px 0 15px 0; border-radius: 5px; border: none; background-color: #333; color: white; box-sizing: border-box; }
+        .btn-guardar { background-color: #27AE60; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .mensaje-exito { background-color: #2ECC71; color: #1E1E1E; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; text-align: center; }
+        .moto-card { background-color: #2A2A2A; border-left: 5px solid #F39C12; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .moto-placa { font-size: 20px; font-weight: bold; color: #F39C12; margin: 0 0 5px 0; }
+        .moto-datos { font-size: 14px; color: #BBB; margin: 5px 0; }
+        
+        /* ESTA ES LA MAGIA PARA QUE LOS SALTOS DE LÍNEA SE VEAN EN LISTA */
+        .moto-diag { font-size: 14px; color: #FFF; background-color: #333; padding: 10px; border-radius: 5px; margin-top: 10px; white-space: pre-wrap; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2 style="margin: 0;">🏍️ Taller</h2>
+        <a href="/dashboard" class="btn-volver">🔙 Volver</a>
+    </div>
+
+    {% if mensaje %} <div class="mensaje-exito">{{ mensaje }}</div> {% endif %}
+
+    <div class="formulario">
+        <h3>Nueva Recepción</h3>
+        <form method="POST">
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label>Placa (Salir para autocompletar)</label>
+                    <input type="text" name="placa" id="placa" placeholder="ABC12D" required style="text-transform: uppercase;">
+                </div>
+                <div style="flex: 1;">
+                    <label>Marca</label>
+                    <input type="text" name="marca" id="marca" placeholder="Ej: Yamaha" required>
+                </div>
+            </div>
+            
+            <label>Modelo</label>
+            <input type="text" name="modelo" id="modelo" placeholder="Ej: FZ 150" required>
+            
+            <label>Cédula / NIT del Cliente</label>
+            <input type="number" name="documento" id="documento" required>
+
+            <label>Cliente (Nombre)</label>
+            <input type="text" name="cliente" id="cliente" required>
+            
+            <label>Teléfono (WhatsApp)</label>
+            <input type="number" name="telefono" id="telefono" required>
+            
+            <label>Cobro Mano de Obra ($)</label>
+            <input type="number" name="mano_obra" value="0" required style="font-weight: bold; color: #2ECC71;">
+
+            <label>Kilometraje Actual (KM)</label>
+            <input type="number" name="kilometraje" placeholder="Ej: 42500" required style="font-weight: bold; color: #F1C40F;">
+
+            <label>Diagnóstico Inicial / Trabajo Realizado</label>
+            <textarea name="diagnostico" rows="3" required></textarea>
+            
+            <button type="submit" class="btn-guardar">💾 Ingresar Moto</button>
+        </form>
+    </div>
+
+    <h3 style="color: #00FFFF;">Motos en Proceso (Activas)</h3>
+    {% for servicio in servicios %}
+    <div class="moto-card">
+        <h4 class="moto-placa">{{ servicio.placa_moto }} - {{ servicio.marca_moto or '' }} {{ servicio.modelo_moto or '' }}</h4>
+        <p class="moto-datos">👤 Cliente: {{ servicio.cliente_nombre or 'No registrado' }} (CC: {{ servicio.documento_cliente or 'N/A' }})</p>
+        
+        <p class="moto-datos" onclick="copiarTel('{{ servicio.cliente_telefono or '' }}')" style="color: #2ECC71; font-weight: bold; font-size: 16px; margin: 8px 0; padding: 8px 12px; background-color: #222; border-radius: 8px; display: inline-block; cursor: pointer; border: 1px solid #333;">
+            📱 Tel: {{ servicio.cliente_telefono or 'Sin número' }} <span style="font-size: 11px; color: #888;">(Tocar)</span>
+        </p>
+
+        <p class="moto-datos">📅 Ingreso: {{ servicio.fecha_ingreso[:16] }}</p>
+        
+        <div style="background-color: #222; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #00FFFF;">
+            <b style="color: #00FFFF; font-size: 14px;">📝 Historial de Trabajos:</b>
+            <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 14px; color: #DDD;">
+                {% for nota in servicio.diagnostico_lista %}
+                <li style="margin-bottom: 5px;">{{ nota }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% if servicio.repuestos %}
+        <div style="background-color: #1A1A1A; padding: 12px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #F1C40F;">
+            
+            <p style="margin: 0 0 10px 0; color: #BBB; font-size: 15px;">
+                🔧 <b>Mano de Obra (Acumulada):</b> {{ servicio.mano_obra_fmt }}
+            </p>
+
+            {% if servicio.repuestos %}
+            <b style="color: #E67E22; font-size: 14px;">📦 Repuestos instalados:</b>
+            <ul style="margin: 5px 0 10px 0; padding-left: 20px; font-size: 14px; color: #DDD;">
+                {% for rep in servicio.repuestos %}
+                <li>
+                    <b>{{ rep.cantidad }}x</b> {{ rep.nombre_repuesto }} 
+                    <br><span style="color: #888; font-size: 12px;">(a {{ rep.precio_fmt }} c/u) = <b style="color: #FFF;">{{ rep.subtotal_fmt }}</b></span>
+                </li>
+                {% endfor %}
+            </ul>
+            <p style="margin: 0; color: #E67E22; font-size: 14px; text-align: right;">
+                <b>Total Repuestos:</b> {{ servicio.total_repuestos_fmt }}
+            </p>
+            {% else %}
+            <p style="margin: 0; color: #777; font-size: 13px; font-style: italic;">Sin repuestos cargados a esta orden.</p>
+            {% endif %}
+
+            <hr style="border: 0; border-top: 1px solid #444; margin: 12px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <b style="color: #2ECC71; font-size: 18px;">💰 GRAN TOTAL:</b>
+                <b style="color: #2ECC71; font-size: 20px; background-color: #000; padding: 5px 10px; border-radius: 5px;">{{ servicio.gran_total_fmt }}</b>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <p style="text-align: center; color: #7f8c8d;">No hay motos pendientes.</p>
+    {% endfor %}
+
+    <script>
+        document.getElementById('placa').addEventListener('blur', function() {
+            let placa = this.value.toUpperCase();
+            if(placa.length >= 5) {
+                fetch('/api/vehiculo/' + placa)
+                .then(response => response.json())
+                .then(data => {
+                    if(data.encontrado) {
+                        document.getElementById('marca').value = data.marca;
+                        document.getElementById('modelo').value = data.modelo;
+                        document.getElementById('cliente').value = data.propietario;
+                        document.getElementById('telefono').value = data.telefono;
+                        // Rellena la cédula también!
+                        if(data.documento) { document.getElementById('documento').value = data.documento; }
+                    }
+                });
+            }
+        });
+
+        function copiarTel(numero) {
+            if (!numero || numero === 'None' || numero === '') {
+                alert("Sin número válido."); return;
+            }
+            navigator.clipboard.writeText(numero).then(function() {
+                alert("¡Número " + numero + " copiado!");
+            });
+        }
+    </script>
+</body>
+</html>

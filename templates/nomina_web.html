@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nómina y Comisiones | Fula Motos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; }
+        .nav-tabs .nav-link.active { font-weight: bold; color: #198754; border-bottom: 3px solid #198754; }
+        .nav-tabs .nav-link { color: #6c757d; }
+        .detalle-trabajo { white-space: pre-line; font-family: monospace; font-size: 0.9em; background: #e9ecef; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1">💰 Módulo Financiero</span>
+        <a href="/dashboard" class="btn btn-outline-light btn-sm">⬅ Volver al Menú</a>
+    </div>
+</nav>
+
+<div class="container mb-5">
+    <h3 class="mb-4">Gestión de Nómina y Comisiones</h3>
+
+    {% if mensaje %}
+    <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+        {{ mensaje }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Pestañas de Navegación -->
+    <ul class="nav nav-tabs mb-4" id="nominaTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="pendientes-tab" data-bs-toggle="tab" data-bs-target="#pendientes" type="button" role="tab">⏱️ Liquidaciones Pendientes</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="historial-tab" data-bs-toggle="tab" data-bs-target="#historial" type="button" role="tab">📜 Historial de Pagos</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="nominaTabsContent">
+        
+        <!-- ============================================== -->
+        <!-- PESTAÑA 1: PENDIENTES DE PAGO                  -->
+        <!-- ============================================== -->
+        <div class="tab-pane fade show active" id="pendientes" role="tabpanel">
+            {% if not nominas %}
+                <div class="alert alert-info text-center py-5 shadow-sm">
+                    <h4>✅ No hay comisiones pendientes por liquidar.</h4>
+                    <p class="mb-0 text-muted">Todos los técnicos están al día o no hay facturas nuevas cobradas.</p>
+                </div>
+            {% else %}
+                <div class="row">
+                    {% for n in nominas %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card shadow-sm border-start border-success border-4">
+                            <div class="card-body">
+                                <h4 class="card-title text-uppercase fw-bold">{{ n['nombre'] }}</h4>
+                                <hr>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Total Mano de Obra:</span>
+                                    <strong>${{ "{:,.0f}".format(n['total_mo']) }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="text-muted">% Comisión Acordado:</span>
+                                    <span class="badge bg-primary fs-6">{{ n['comision'] }}%</span>
+                                </div>
+                                <div class="p-3 bg-light rounded text-center mb-3">
+                                    <span class="d-block text-muted small">TOTAL A PAGAR</span>
+                                    <span class="fs-2 fw-bold text-success">${{ "{:,.0f}".format(n['pago']) }}</span>
+                                </div>
+                                
+                                <!-- Botón que abre el modal con el detalle y las notas -->
+                                <button class="btn btn-success w-100 fw-bold" onclick="abrirModalPago('{{ n['id_tec'] }}', '{{ n['nombre'] }}', '{{ n['pago'] }}', `{{ n['texto_detalle'] }}`)">
+                                    💸 Revisar y Liquidar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- ============================================== -->
+        <!-- PESTAÑA 2: HISTORIAL DE PAGOS                  -->
+        <!-- ============================================== -->
+        <div class="tab-pane fade" id="historial" role="tabpanel">
+            <div class="accordion shadow-sm" id="accordionHistorial">
+                {% for h in historial %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading-{{ h['id'] }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ h['id'] }}" aria-expanded="false" aria-controls="collapse-{{ h['id'] }}">
+                            <div class="d-flex w-100 justify-content-between me-3 align-items-center">
+                                <div>
+                                    <strong class="text-uppercase">{{ h['username'] if h['username'] else 'USUARIO ELIMINADO' }}</strong><br>
+                                    <small class="text-muted">📅 {{ h['fecha_pago'][:16] }}</small>
+                                </div>
+                                <span class="badge bg-success fs-6">Pagado: ${{ "{:,.0f}".format(h['total_pagado']) }}</span>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse-{{ h['id'] }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ h['id'] }}" data-bs-parent="#accordionHistorial">
+                        <div class="accordion-body bg-light">
+                            {% if h['notas'] != 'Sin notas adicionales.' %}
+                                <div class="alert alert-warning py-2 px-3 mb-3">
+                                    <strong>📝 Notas de pago:</strong> {{ h['notas'] }}
+                                </div>
+                            {% endif %}
+                            <h6 class="fw-bold">Detalle de motos liquidadas:</h6>
+                            <div class="detalle-trabajo text-muted border border-secondary border-opacity-25">{{ h['detalle_trabajos'] }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">Aún no hay registros en la bóveda contable.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL DE LIQUIDACIÓN Y NOTAS                   -->
+<!-- ============================================== -->
+<div class="modal fade" id="modalLiquidacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-success">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">💸 Liquidar Nómina</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/nomina_web/pagar" method="POST" onsubmit="return confirm('¿Confirmas el descuento de este dinero en la caja y el registro contable?');">
+                <div class="modal-body">
+                    <!-- Campos ocultos necesarios para el servidor -->
+                    <input type="hidden" id="form_id_tec" name="id_tec">
+                    <input type="hidden" id="form_nombre" name="nombre">
+                    <input type="hidden" id="form_total" name="total_pagado">
+                    <input type="hidden" id="form_detalle" name="detalle_trabajos">
+
+                    <h5 class="text-center fw-bold text-uppercase" id="display_nombre">Técnico</h5>
+                    <h2 class="text-center text-success fw-bold mb-4" id="display_monto">$0</h2>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">📝 Notas u observaciones del pago:</label>
+                        <textarea class="form-control" name="notas" rows="2" placeholder="Ej: Quincena completa / Se descuentan $20.000 por adelanto..."></textarea>
+                    </div>
+
+                    <label class="form-label fw-bold mt-2">Motos que cubre este pago:</label>
+                    <div class="detalle-trabajo" id="display_detalle"></div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold">Confirmar y Descontar de Caja</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const modalLiquidacion = new bootstrap.Modal(document.getElementById('modalLiquidacion'));
+
+    function abrirModalPago(idTec, nombre, montoFloat, textoDetalle) {
+        // Formatear la moneda en JS para que se vea bonita en el título
+        let montoFormateado = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(montoFloat);
+        
+        // Llenar datos visuales
+        document.getElementById('display_nombre').innerText = nombre;
+        document.getElementById('display_monto').innerText = montoFormateado;
+        document.getElementById('display_detalle').innerText = textoDetalle;
+
+        // Llenar campos ocultos del formulario
+        document.getElementById('form_id_tec').value = idTec;
+        document.getElementById('form_nombre').value = nombre;
+        document.getElementById('form_total').value = montoFloat;
+        document.getElementById('form_detalle').value = textoDetalle;
+
+        modalLiquidacion.show();
+    }
+</script>
+</body>
+</html>

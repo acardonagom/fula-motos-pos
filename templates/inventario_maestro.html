@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario Maestro | Fula Motos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; }
+        .table-hover tbody tr:hover { background-color: #e9ecef; }
+        /* Efecto para que los encabezados parezcan botones */
+        th.sortable { cursor: pointer; user-select: none; transition: background 0.2s; }
+        th.sortable:hover { background-color: #343a40 !important; color: #0dcaf0 !important; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1">🛠️ Fula Motos Admin</span>
+        <a href="/dashboard" class="btn btn-outline-light btn-sm">⬅ Volver al Menú Principal</a>
+    </div>
+</nav>
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="text-dark">📦 Inventario Maestro</h3>
+        <button class="btn btn-success" onclick="abrirModalNuevo()">+ Agregar Repuesto</button>
+    </div>
+
+    {% if mensaje %}
+    <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+        {{ mensaje }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- NUEVO: BARRA DE BÚSQUEDA Y FILTROS -->
+    <div class="row mb-3 g-2">
+        <div class="col-md-6">
+            <input type="text" id="buscador" class="form-control border-primary shadow-sm" placeholder="🔍 Buscar por SKU o Nombre..." onkeyup="filtrarTabla()">
+        </div>
+        <div class="col-md-6">
+            <select id="filtroCategoria" class="form-select border-primary shadow-sm" onchange="filtrarTabla()">
+                <option value="TODAS">📁 Todas las categorías</option>
+                {% for cat in categorias %}
+                <option value="{{ cat }}">{{ cat }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- Tabla Principal -->
+    <div class="card shadow-sm mb-5">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle mb-0" id="tablaInventario">
+                    <thead class="table-dark">
+                        <tr>
+                            <!-- Le agregamos el evento onclick a las cabeceras para que ordenen -->
+                            <th class="sortable" onclick="ordenarTabla(0, 'str')">SKU ↕️</th>
+                            <th class="sortable" onclick="ordenarTabla(1, 'str')">Descripción ↕️</th>
+                            <th class="sortable" onclick="ordenarTabla(2, 'str')">Categoría ↕️</th>
+                            <th class="sortable" onclick="ordenarTabla(3, 'int')">Stock ↕️</th>
+                            <th class="sortable" onclick="ordenarTabla(4, 'float')">Costo ↕️</th>
+                            <th class="sortable" onclick="ordenarTabla(5, 'float')">Venta ↕️</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rep in repuestos %}
+                        <tr>
+                            <td><strong>{{ rep['sku'] }}</strong></td>
+                            <td>{{ rep['nombre_repuesto'] }}</td>
+                            <td><span class="badge bg-secondary">{{ rep['categoria'] }}</span></td>
+                            <td>
+                                {% if rep['stock'] <= rep['stock_minimo'] %}
+                                    <span class="badge bg-danger fs-6">{{ rep['stock'] }}</span>
+                                {% else %}
+                                    <span class="badge bg-primary fs-6">{{ rep['stock'] }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted">${{ "{:,.0f}".format(rep['precio_costo']) }}</td>
+                            <td class="text-success fw-bold">${{ "{:,.0f}".format(rep['precio_venta']) }}</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary me-1" 
+                                    onclick="abrirModalEditar('{{ rep['id'] }}', '{{ rep['sku'] }}', '{{ rep['nombre_repuesto'] }}', '{{ rep['categoria'] }}', '{{ rep['ubicacion'] }}', '{{ rep['stock'] }}', '{{ rep['stock_minimo'] }}', '{{ rep['precio_costo'] }}', '{{ rep['precio_venta'] }}')">
+                                    ✏️
+                                </button>
+                                
+                                <form action="/inventario_maestro/eliminar/{{ rep['id'] }}" method="POST" class="d-inline" onsubmit="return confirm('¿Seguro que quieres borrar este repuesto del sistema?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">🗑️</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: FORMULARIO CREAR / EDITAR (Se mantiene intacto) -->
+<div class="modal fade" id="modalRepuesto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="tituloModal">Nuevo Repuesto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <form action="/inventario_maestro/guardar" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" id="id_repuesto" name="id_repuesto">
+                    
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">SKU / Código</label>
+                            <input type="text" class="form-control" id="sku" name="sku" required>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Descripción / Nombre</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Categoría</label>
+                            <input type="text" class="form-control" id="categoria" name="categoria">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Ubicación física</label>
+                            <input type="text" class="form-control" id="ubicacion" name="ubicacion">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Stock</label>
+                            <input type="number" class="form-control" id="stock" name="stock" value="0" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-danger">Mínimo</label>
+                            <input type="number" class="form-control" id="stock_minimo" name="stock_minimo" value="0" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-secondary">Costo ($)</label>
+                            <input type="number" step="0.01" class="form-control" id="precio_costo" name="precio_costo" value="0" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-success">Venta ($)</label>
+                            <input type="number" step="0.01" class="form-control" id="precio_venta" name="precio_venta" value="0" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">💾 Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // --- LÓGICA DE FILTROS INSTANTÁNEOS ---
+    function filtrarTabla() {
+        let inputBusqueda = document.getElementById("buscador").value.toUpperCase();
+        let filtroCat = document.getElementById("filtroCategoria").value.toUpperCase();
+        let tabla = document.getElementById("tablaInventario");
+        let trs = tabla.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+
+        for (let i = 0; i < trs.length; i++) {
+            let tdSKU = trs[i].getElementsByTagName("td")[0];
+            let tdNombre = trs[i].getElementsByTagName("td")[1];
+            let tdCategoria = trs[i].getElementsByTagName("td")[2];
+
+            if (tdSKU && tdNombre && tdCategoria) {
+                let textoSKU = tdSKU.textContent || tdSKU.innerText;
+                let textoNombre = tdNombre.textContent || tdNombre.innerText;
+                let textoCategoria = (tdCategoria.textContent || tdCategoria.innerText).trim().toUpperCase();
+
+                let coincideBusqueda = textoSKU.toUpperCase().indexOf(inputBusqueda) > -1 || textoNombre.toUpperCase().indexOf(inputBusqueda) > -1;
+                let coincideCategoria = (filtroCat === "TODAS" || textoCategoria === filtroCat);
+
+                if (coincideBusqueda && coincideCategoria) {
+                    trs[i].style.display = "";
+                } else {
+                    trs[i].style.display = "none";
+                }
+            }
+        }
+    }
+
+    // --- LÓGICA PARA ORDENAR COLUMNAS ---
+    let ordenAscendente = true;
+    function ordenarTabla(columna, tipo) {
+        let tabla = document.getElementById("tablaInventario");
+        let tbody = tabla.querySelector("tbody");
+        let filas = Array.from(tbody.querySelectorAll("tr"));
+
+        filas.sort((a, b) => {
+            // Sacamos el texto y le limpiamos los signos de dólar y comas para que la matemática no falle
+            let valA = a.querySelectorAll("td")[columna].innerText.trim().replace(/\$/g, '').replace(/,/g, '');
+            let valB = b.querySelectorAll("td")[columna].innerText.trim().replace(/\$/g, '').replace(/,/g, '');
+
+            if (tipo === 'int' || tipo === 'float') {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+                return ordenAscendente ? valA - valB : valB - valA;
+            } else {
+                return ordenAscendente ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+        });
+
+        ordenAscendente = !ordenAscendente; // Invertimos el orden para el siguiente clic
+        
+        // Volvemos a pegar las filas ya ordenadas en la tabla
+        filas.forEach(fila => tbody.appendChild(fila));
+    }
+
+    // --- LÓGICA DE LOS MODALES ---
+    const modalRepuesto = new bootstrap.Modal(document.getElementById('modalRepuesto'));
+
+    function abrirModalNuevo() {
+        document.getElementById('tituloModal').innerText = "📦 Nuevo Repuesto";
+        document.getElementById('id_repuesto').value = "";
+        document.getElementById('sku').value = "";
+        document.getElementById('nombre').value = "";
+        document.getElementById('categoria').value = "";
+        document.getElementById('ubicacion').value = "";
+        document.getElementById('stock').value = "0";
+        document.getElementById('stock_minimo').value = "0";
+        document.getElementById('precio_costo').value = "0";
+        document.getElementById('precio_venta').value = "0";
+        modalRepuesto.show();
+    }
+
+    function abrirModalEditar(id, sku, nombre, cat, ubi, stock, smin, costo, venta) {
+        document.getElementById('tituloModal').innerText = "✏️ Editar Repuesto";
+        document.getElementById('id_repuesto').value = id;
+        document.getElementById('sku').value = sku;
+        document.getElementById('nombre').value = nombre;
+        document.getElementById('categoria').value = cat !== 'None' ? cat : '';
+        document.getElementById('ubicacion').value = ubi !== 'None' ? ubi : '';
+        document.getElementById('stock').value = stock;
+        document.getElementById('stock_minimo').value = smin;
+        document.getElementById('precio_costo').value = parseFloat(costo) || 0;
+        document.getElementById('precio_venta').value = parseFloat(venta) || 0;
+        modalRepuesto.show();
+    }
+</script>
+</body>
+</html>

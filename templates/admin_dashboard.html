@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin - Fula Motos</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1A1A1A; color: white; margin: 0; padding: 15px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .btn-volver { background-color: #555; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; }
+        
+        /* Controles Admin (Máquina del tiempo y botones) */
+        .admin-panel { background-color: #2C3E50; border: 1px solid #34495E; border-radius: 10px; padding: 15px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between; }
+        .filtros-tiempo { display: flex; gap: 10px; align-items: center; }
+        .filtros-tiempo input { background-color: #1A1A1A; color: white; border: 1px solid #555; padding: 8px; border-radius: 5px; color-scheme: dark; }
+        .btn-accion { background-color: #2980B9; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .btn-accion.gasto { background-color: #E67E22; }
+        
+        .grid-cifras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .caja-cifra { background-color: #222; border: 2px solid #444; border-radius: 10px; padding: 15px; text-align: center; }
+        .caja-cifra h4 { margin: 0 0 5px 0; font-size: 12px; color: #AAA; text-transform: uppercase; letter-spacing: 1px; }
+        .caja-cifra.ventas { border-color: #27AE60; } .caja-cifra.ventas .valor { color: #27AE60; }
+        .caja-cifra.gastos { border-color: #E67E22; } .caja-cifra.gastos .valor { color: #E67E22; }
+        .caja-cifra.saldo { border-color: #3498DB; grid-column: span 2; } .caja-cifra.saldo .valor { color: #3498DB; font-size: 28px; }
+        .valor { font-size: 22px; font-weight: bold; margin: 0; }
+
+        .panel { background-color: #222; border-radius: 10px; padding: 15px; margin-bottom: 20px; }
+        .panel h3 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 8px; font-size: 16px; }
+        
+        .lista-items { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+        .lista-items li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #333; }
+        .lista-items li:last-child { border-bottom: none; }
+        
+        .alerta-roja { color: #E74C3C; font-weight: bold; }
+        .alerta-naranja { color: #F1C40F; font-weight: bold; }
+
+        /* Estilos para Ventanas Emergentes (Modales) */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background-color: #222; padding: 25px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #555; }
+        .modal-content h3 { margin-top: 0; color: #3498DB; }
+        .modal-content input { width: 100%; padding: 10px; margin: 10px 0; background: #111; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; }
+        .modal-btns { display: flex; gap: 10px; margin-top: 15px; }
+        .modal-btns button { flex: 1; padding: 10px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-cancelar { background-color: #555; color: white; }
+        .btn-guardar { background-color: #27AE60; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2 style="margin: 0; color: #00FFFF;">📊 Dashboard ({{ fecha_texto }})</h2>
+        <a href="/dashboard" class="btn-volver">🔙 Menú</a>
+    </div>
+
+    <!-- MODO DIOS: CONTROLES DE ADMIN -->
+    {% if session['rol'] == 'Admin' %}
+    <div class="admin-panel">
+        <div class="filtros-tiempo">
+            <span style="font-weight: bold; color: #AAA;">Viajar a:</span>
+            <input type="date" id="filtroDia" title="Ver un día específico" onchange="viajarEnElTiempo('dia')">
+            <span style="color: #555;">|</span>
+            <input type="month" id="filtroMes" title="Ver un mes completo" onchange="viajarEnElTiempo('mes')">
+            <button class="btn-accion" style="padding: 8px; background: #555;" onclick="window.location.href='/admin_dashboard'">Hoy</button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-accion gasto" onclick="abrirModal('gasto')">💸 Registrar Gasto</button>
+            <button class="btn-accion" onclick="abrirModal('ingreso')">⚖️ Ingreso / Ajuste</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid-cifras">
+        <div class="caja-cifra ventas">
+            <h4>Ingresos Totales (+)</h4>
+            <p class="valor">${{ "{:,.0f}".format(ventas) }}</p>
+        </div>
+        <div class="caja-cifra gastos">
+            <h4>Salidas y Gastos (-)</h4>
+            <p class="valor">${{ "{:,.0f}".format(gastos) }}</p>
+        </div>
+        <div class="caja-cifra saldo">
+            <h4>Saldo Final en Caja</h4>
+            <p class="valor">${{ "{:,.0f}".format(saldo) }}</p>
+        </div>
+    </div>
+
+    <div class="panel" style="border: 1px solid #E74C3C;">
+        <h3 style="color: #E74C3C;">🚨 Reposición Urgente</h3>
+        <ul class="lista-items">
+            {% for rep in reposicion %}
+            <li>
+                <span>{{ rep['nombre_repuesto'] }}</span>
+                <span class="{% if rep['stock'] <= 0 %}alerta-roja{% else %}alerta-naranja{% endif %}">
+                    {{ rep['stock'] }} / {{ rep['stock_minimo'] }}
+                </span>
+            </li>
+            {% else %}
+            <li style="color: #27AE60;">¡Todo el inventario está en niveles óptimos!</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="panel" style="border: 1px solid #F1C40F;">
+        <h3 style="color: #F1C40F;">🏆 Top 10 Repuestos Más Vendidos</h3>
+        <ul class="lista-items">
+            {% for t in top %}
+            <li>
+                <span>{{ loop.index }}. {{ t['nombre_repuesto'] }}</span>
+                <span style="color: #FFF; font-weight: bold;">{{ t['total_vendido'] }} un.</span>
+            </li>
+            {% else %}
+            <li style="color: #777;">No hay ventas registradas en este periodo.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- MODAL DE GASTOS / INGRESOS -->
+    <div class="modal-overlay" id="modalOperacion">
+        <div class="modal-content">
+            <h3 id="modalTitulo">Registrar Movimiento</h3>
+            <p style="font-size: 12px; color: #AAA; margin-top: -10px;">Nota: Estos movimientos afectan la caja de HOY.</p>
+            
+            <input type="hidden" id="tipoOperacion">
+            <input type="text" id="descOperacion" placeholder="Descripción (Ej: Pago de luz, Compra almuerzo...)">
+            <input type="number" id="montoOperacion" placeholder="Monto en $ (Sin puntos)">
+            
+            <div class="modal-btns">
+                <button class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn-guardar" onclick="guardarOperacionCaja()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // MÁQUINA DEL TIEMPO
+        function viajarEnElTiempo(tipo) {
+            let url = "/admin_dashboard?";
+            if (tipo === 'dia') {
+                let fecha = document.getElementById("filtroDia").value;
+                if(fecha) window.location.href = url + "fecha=" + fecha;
+            } else if (tipo === 'mes') {
+                let mes = document.getElementById("filtroMes").value; // Formato YYYY-MM
+                if(mes) window.location.href = url + "mes=" + mes;
+            }
+        }
+
+        // VENTANAS DE CAJA
+        function abrirModal(tipo) {
+            document.getElementById('tipoOperacion').value = tipo;
+            document.getElementById('modalTitulo').innerText = tipo === 'gasto' ? '💸 Registrar Gasto' : '⚖️ Ingreso de Dinero';
+            document.getElementById('modalTitulo').style.color = tipo === 'gasto' ? '#E67E22' : '#27AE60';
+            document.getElementById('modalOperacion').style.display = 'flex';
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalOperacion').style.display = 'none';
+            document.getElementById('descOperacion').value = '';
+            document.getElementById('montoOperacion').value = '';
+        }
+
+        async function guardarOperacionCaja() {
+            let tipo = document.getElementById('tipoOperacion').value;
+            let desc = document.getElementById('descOperacion').value.trim();
+            let monto = document.getElementById('montoOperacion').value;
+
+            if(!desc || !monto || monto <= 0) {
+                alert("Ingresa una descripción y un monto válido mayor a 0.");
+                return;
+            }
+
+            try {
+                // Llamamos a la API que creamos en el bloque anterior
+                let res = await fetch('/api/registrar_gasto', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ descripcion: desc, monto: monto, tipo: tipo })
+                });
+                let data = await res.json();
+                
+                if(data.success) {
+                    alert("✅ Movimiento registrado con éxito.");
+                    window.location.href = '/admin_dashboard'; // Recargar para ver los cambios
+                } else { alert("Error: " + data.mensaje); }
+            } catch (e) { alert("Error de conexión"); }
+        }
+    </script>
+</body>
+</html>

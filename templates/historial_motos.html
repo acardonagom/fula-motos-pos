@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial - Fula Motos</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1E1E1E; color: white; margin: 0; padding: 15px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .btn-volver { background-color: #555; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; }
+        .buscador { width: 100%; padding: 12px; border-radius: 8px; border: none; background-color: #333; color: white; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; }
+        
+        .moto-card { background-color: #2A2A2A; border-left: 5px solid #8E44AD; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .moto-placa { font-size: 20px; font-weight: bold; color: #8E44AD; margin: 0 0 5px 0; display: flex; justify-content: space-between; }
+        .moto-datos { font-size: 14px; color: #BBB; margin: 5px 0; }
+        .badge-estado { font-size: 12px; padding: 3px 8px; border-radius: 10px; color: white; }
+        .est-pendiente { background-color: #F39C12; }
+        .est-terminada { background-color: #27AE60; }
+        .moto-diag { white-space: pre-wrap; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2 style="margin: 0;">🕒 Histórico</h2>
+        <a href="/dashboard" class="btn-volver">🔙 Volver</a>
+    </div>
+
+    <input type="text" id="buscador" class="buscador" placeholder="🔍 Buscar por placa, marca o técnico..." onkeyup="filtrar()">
+
+    <div id="lista-motos">
+        {% for s in historial %}
+        <div class="moto-card">
+            <div class="moto-placa">
+                {{ s.placa_moto }}
+                <span class="badge-estado {% if s.estado == 'Pendiente' %}est-pendiente{% else %}est-terminada{% endif %}">
+                    {{ s.estado }}
+                </span>
+            </div>
+            <p class="moto-datos"><b>Vehículo:</b> {{ s.marca_moto or '' }} {{ s.modelo_moto or '' }}</p>
+            <p class="moto-datos"><b>👤 Cliente:</b> {{ s.cliente_nombre or '' }} | 📱 <b>Tel:</b> {{ s.cliente_telefono or '' }}</p>
+            <p class="moto-datos">📅 Ingreso: {{ s.fecha_ingreso[:16] }}</p>
+            <p class="moto-datos">👨‍🔧 Técnico: {{ s.mecanico }}</p>
+            
+            <div style="background-color: #222; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #8E44AD;">
+                <b style="color: #9B59B6; font-size: 14px;">📝 Historial de Servicios:</b>
+                <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 14px; color: #DDD;">
+                    {% for nota in s.diagnostico_lista %}
+                    <li style="margin-bottom: 5px;">{{ nota }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div style="background-color: #1A1A1A; padding: 12px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #F1C40F;">
+            
+                <p style="margin: 0 0 10px 0; color: #BBB; font-size: 15px;">
+                    🔧 <b>Mano de Obra (Acumulada):</b> {{ s.mano_obra_fmt }}
+                </p>
+
+                {% if s.repuestos %}
+                <b style="color: #E67E22; font-size: 14px;">📦 Repuestos facturados/utilizados:</b>
+                <ul style="margin: 5px 0 10px 0; padding-left: 20px; font-size: 14px; color: #DDD;">
+                    {% for rep in s.repuestos %}
+                    <li>
+                        <b>{{ rep.cantidad }}x</b> {{ rep.nombre_repuesto }} 
+                        <br><span style="color: #888; font-size: 12px;">(a {{ rep.precio_fmt }} c/u) = <b style="color: #FFF;">{{ rep.subtotal_fmt }}</b></span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p style="margin: 0; color: #E67E22; font-size: 14px; text-align: right;">
+                    <b>Total Repuestos:</b> {{ s.total_repuestos_fmt }}
+                </p>
+                {% else %}
+                <p style="margin: 0; color: #777; font-size: 13px; font-style: italic;">Sin repuestos cargados a esta orden.</p>
+                {% endif %}
+
+                <hr style="border: 0; border-top: 1px solid #444; margin: 12px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <b style="color: #2ECC71; font-size: 18px;">💰 GRAN TOTAL:</b>
+                    <b style="color: #2ECC71; font-size: 20px; background-color: #000; padding: 5px 10px; border-radius: 5px;">{{ s.gran_total_fmt }}</b>
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function filtrar() {
+            var texto = document.getElementById('buscador').value.toLowerCase();
+            var tarjetas = document.getElementsByClassName('moto-card');
+            for (var i = 0; i < tarjetas.length; i++) {
+                if (tarjetas[i].innerText.toLowerCase().includes(texto)) {
+                    tarjetas[i].style.display = "";
+                } else {
+                    tarjetas[i].style.display = "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Historial POS | Fula Motos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<nav class="navbar navbar-dark bg-dark mb-4 shadow-sm">
+    <div class="container-fluid">
+        <span class="navbar-brand fw-bold">📄 Historial de Facturas (Web)</span>
+        <div>
+            <a href="/pos_web" class="btn btn-warning btn-sm me-2 fw-bold">🛒 Ir al POS</a>
+            <a href="/dashboard" class="btn btn-outline-light btn-sm">⬅ Volver al Menú</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container bg-white p-4 rounded shadow-sm">
+    <!-- BUSCADOR DINÁMICO -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <input type="text" id="buscadorHistorial" class="form-control form-control-lg border-primary" 
+                   placeholder="🔍 Buscar por Factura, Nombre, Cédula o Placa..." onkeyup="filtrarHistorial()">
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle" id="tablaHistorial">
+            <thead class="table-dark">
+                <tr>
+                    <th>Consecutivo</th><th>Fecha</th><th>Cliente</th><th>Moto</th><th>Total</th><th>Estado</th><th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in facturas %}
+                <tr>
+                    <td><strong>{{ f.consecutivo }}</strong></td>
+                    <td>{{ f.fecha[:16] }}</td>
+                    <td>{{ f.nombre or 'Consumidor Final' }}</td>
+                    <td>{{ f.placa_moto }}</td>
+                    <td class="text-success fw-bold">${{ "{:,.0f}".format(f.total) }}</td>
+                    <td>
+                        <span class="badge {% if f.estado == 'Pagada' %}bg-success{% elif f.estado == 'Cotizacion' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                            {{ f.estado }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary fw-bold" onclick="abrirModalReenviar({{ f.id }}, '{{ f.consecutivo }}', '{{ f.nombre or 'Cliente' }}', '{{ f.placa_moto }}', '{{ f.estado }}')">🖨️ Reenviar</button>
+                        <button class="btn btn-sm btn-outline-warning fw-bold text-dark" onclick="editarFactura({{ f.id }})">✏️ Editar</button>
+                        
+                        <!-- MODO DIOS: ELIMINAR (Solo Admin) -->
+                        {% if rol == 'Admin' %}
+                        <button class="btn btn-sm btn-danger ms-1" onclick="eliminarFactura({{ f.id }})" title="Eliminar Factura">🗑️</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL PARA REENVIAR Y EXPORTAR -->
+<div class="modal fade" id="modalReenviar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-primary">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">📄 Opciones de Documento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <p class="text-muted mb-4">¿Qué deseas hacer con el documento <strong id="lblDocConsecutivo"></strong>?</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success btn-lg" onclick="compartirWhatsAppHistorial()">🟢 Reenviar por WhatsApp</button>
+                    <button class="btn btn-dark btn-lg" onclick="imprimirTicketHistorial()">🖨️ Imprimir / Guardar PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let facturaActiva = {}; // Almacena temporalmente la factura que se va a reenviar
+
+    // 1. EL BUSCADOR DINÁMICO
+    function filtrarHistorial() {
+        let input = document.getElementById("buscadorHistorial").value.toUpperCase();
+        let trs = document.querySelectorAll("#tablaHistorial tbody tr");
+        trs.forEach(tr => {
+            let textoFila = tr.innerText.toUpperCase();
+            tr.style.display = textoFila.includes(input) ? "" : "none";
+        });
+    }
+
+    // 2. ENVIAR A LA CAJA PARA EDITAR
+    function editarFactura(idFactura) {
+        if(!confirm("¿Cargar esta factura a la caja para editarla?\n\nNota: Se generará como un documento NUEVO. Si necesitas anular el anterior, el Administrador debe borrarlo con el botón de la papelera.")) return;
+        
+        // Guardamos el ID en la memoria del navegador y saltamos al POS
+        sessionStorage.setItem('facturaClonarId', idFactura);
+        window.location.href = '/pos_web';
+    }
+
+    // 3. ELIMINAR FACTURA (Protegido por Python para Admin)
+    async function eliminarFactura(id) {
+        if(!confirm("⚠️ Estas SEGURO que deseas eliminar esta factura de la base de datos?\nEsta acción no se puede deshacer.")) return;
+        try {
+            let res = await fetch(`/api/eliminar_factura/${id}`, {method: 'DELETE'});
+            let data = await res.json();
+            if(data.success) location.reload();
+            else alert("Error: " + data.mensaje);
+        } catch (e) { alert("Error de red"); }
+    }
+
+    // 4. LÓGICA DE REENVIAR (Fetch items y abrir modal)
+    async function abrirModalReenviar(id, consecutivo, cliente, placa, estado) {
+        try {
+            let res = await fetch(`/api/cargar_factura/${id}`);
+            let data = await res.json();
+            if (data.success) {
+                facturaActiva = {
+                    id: id,
+                    consecutivo: consecutivo,
+                    cliente: cliente,
+                    placa: placa,
+                    carrito: data.carrito,
+                    accion: estado === 'Cotizacion' ? 'Cotizar' : 'Cobrar'
+                };
+                document.getElementById('lblDocConsecutivo').innerText = consecutivo;
+                new bootstrap.Modal(document.getElementById('modalReenviar')).show();
+            } else { alert("No se pudieron cargar los detalles."); }
+        } catch (e) { alert("Error de conexión."); }
+    }
+
+    // Funciones de Impresión idénticas a las del POS
+    function compartirWhatsAppHistorial() {
+        let isCot = facturaActiva.accion === 'Cotizar';
+        let tipoTx = isCot ? "COTIZACIÓN" : "FACTURA";
+        let texto = `🏍️ *FULA MOTOS* 🏍️\n🧾 _${tipoTx} ${facturaActiva.consecutivo}_\n👤 Cliente: ${facturaActiva.cliente}\n`;
+        if (facturaActiva.placa) texto += `🏍️ Moto: ${facturaActiva.placa}\n`;
+        texto += `------------------------\n`;
+        
+        let total = 0;
+        let fmt = new Intl.NumberFormat('es-CO').format;
+        facturaActiva.carrito.forEach(i => {
+            if(isCot) texto += `▪ ${i.cantidad}x ${i.nombre}\n`;
+            else texto += `▪ ${i.cantidad}x ${i.nombre} - $${fmt(i.subtotal)}\n`;
+            total += i.subtotal;
+        });
+        
+        texto += `------------------------\n💰 *TOTAL: $${fmt(total)}*\n\n¡Gracias por preferirnos! 🚀`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+    }
+
+    function imprimirTicketHistorial() {
+        // En vez de armar HTML básico, abrimos el PDF elegante del servidor en otra pestaña
+        window.open('/api/descargar_pdf/' + facturaActiva.id, '_blank');
+    }
+</script>
+</body>
+</html>

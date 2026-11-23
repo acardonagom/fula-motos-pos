@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CXP Proveedores | Fula Motos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark mb-4 shadow-sm">
+    <div class="container-fluid">
+        <span class="navbar-brand fw-bold">🏢 Proveedores (Cuentas por Pagar)</span>
+        <a href="/dashboard" class="btn btn-outline-light btn-sm">⬅ Volver al Menú</a>
+    </div>
+</nav>
+
+<div class="container">
+    <!-- FORMULARIO FÁCIL PARA AGREGAR FACTURAS -->
+    <div class="card shadow-sm mb-4 border-primary">
+        <div class="card-header bg-primary text-white fw-bold">➕ Registrar Nueva Factura</div>
+        <div class="card-body bg-white">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small">Nombre Proveedor</label>
+                    <input type="text" id="provNombre" class="form-control" placeholder="Ej: Honda">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">N° Factura</label>
+                    <input type="text" id="provNum" class="form-control" placeholder="0001">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-danger">Total Normal ($)</label>
+                    <input type="number" id="provTotal" class="form-control" placeholder="Sin puntos">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-success">Total con Descuento ($)</label>
+                    <input type="number" id="provDesc" class="form-control" placeholder="Opcional">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-primary w-100 fw-bold" onclick="guardarFactura()">💾 Guardar Deuda</button>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Límite para Descuento:</label>
+                    <input type="date" id="fechaDesc" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Vencimiento Máximo:</label>
+                    <input type="date" id="fechaMax" class="form-control">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EL SEMÁFORO WEB -->
+    <h4 class="text-muted fw-bold mb-3">🚦 Semáforo de Deudas</h4>
+    <div class="row">
+        {% if not deudas %}
+        <div class="col-12 text-center text-muted p-5">
+            <h5>✅ El taller está libre de deudas.</h5>
+        </div>
+        {% endif %}
+
+        {% for d in deudas %}
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm {% if d.aplica_descuento %}border-success{% else %}border-danger{% endif %} h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title fw-bold">🏢 {{ d.proveedor }}</h5>
+                        <span class="badge bg-secondary fs-6">Fac: {{ d.num_factura }}</span>
+                    </div>
+                    <hr>
+                    
+                    {% if d.aplica_descuento %}
+                        <p class="text-success fw-bold mb-1">🟢 ¡Aplica Descuento hasta {{ d.fecha_limite_descuento }}!</p>
+                        <h3 class="text-dark fw-bold mb-0">Deuda: ${{ "{:,.0f}".format(d.total_con_descuento) }}</h3>
+                    {% else %}
+                        <p class="text-danger fw-bold mb-1">🔴 Descuento Perdido. Pagar antes de {{ d.fecha_vencimiento_final }}</p>
+                        <h3 class="text-dark fw-bold mb-0">Deuda: ${{ "{:,.0f}".format(d.total_normal) }}</h3>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-light d-flex justify-content-between">
+                    <small class="text-muted mt-2">Saldo pendiente en sistema</small>
+                    <button class="btn btn-sm btn-outline-primary" onclick="alert('Funcionalidad de pagos web en construcción. Pagar desde el PC por ahora.')">💸 Abonar / Pagar</button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    async function guardarFactura() {
+        let datos = {
+            proveedor: document.getElementById('provNombre').value,
+            num_factura: document.getElementById('provNum').value,
+            total_normal: document.getElementById('provTotal').value,
+            total_desc: document.getElementById('provDesc').value,
+            fecha_desc: document.getElementById('fechaDesc').value,
+            fecha_max: document.getElementById('fechaMax').value
+        };
+
+        if(!datos.proveedor || !datos.num_factura || !datos.total_normal || !datos.fecha_desc || !datos.fecha_max) {
+            alert("⚠️ Por favor llena todos los campos, incluyendo las fechas.");
+            return;
+        }
+
+        try {
+            let res = await fetch('/api/guardar_proveedor', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(datos)
+            });
+            let data = await res.json();
+            
+            if(data.success) {
+                alert("✅ Factura registrada correctamente.");
+                location.reload();
+            } else { alert("Error: " + data.mensaje); }
+        } catch (e) { alert("Error de conexión"); }
+    }
+</script>
+</body>
+</html>

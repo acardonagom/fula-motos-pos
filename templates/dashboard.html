@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Fula Motos</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #1E1E1E; color: white; margin: 0; padding: 20px; text-align: center; }
+        h1 { color: #00FFFF; margin-bottom: 5px; }
+        .rol-badge { background-color: #F39C12; color: #1E1E1E; padding: 5px 10px; border-radius: 15px; font-weight: bold; font-size: 14px; display: inline-block; margin-bottom: 30px; }
+        .menu-grid { display: grid; grid-template-columns: 1fr; gap: 15px; max-width: 400px; margin: 0 auto; }
+        .btn-menu { background-color: #2980B9; color: white; padding: 20px; border-radius: 10px; text-decoration: none; font-size: 18px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .btn-menu:active { transform: scale(0.98); }
+        .btn-motos { background-color: #27AE60; }
+        .btn-salir { background-color: #C0392B; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>¡Hola, {{ session['nombre'] }}! 🔧</h1>
+    <div class="rol-badge">Perfil: {{ session['rol'] }}</div>
+
+    <div class="menu-grid">
+        <!-- SECCIÓN TALLER (No visible para Vendedor) -->
+        {% if session['rol'] != 'Vendedor' %}
+        <a href="/motos" class="btn-menu btn-motos">🏍️ Recepción de Motos</a>
+        <a href="/historial_motos" class="btn-menu" style="background-color: #8E44AD;">🕒 Histórico de Motos</a>
+        {% endif %}
+        
+        <!-- SECCIÓN INVENTARIO BÁSICO (Todos) -->
+        <a href="/inventario" class="btn-menu">📦 Ver Inventario</a>
+
+        <!-- SECCIÓN VENTAS Y CAJA (Admin y Vendedora) -->
+        {% if session['rol'] == 'Admin' or session['rol'] == 'Vendedor' %}
+        <hr style="border: 1px solid #444; width: 100%; margin: 15px 0;">
+        <h3 style="color: #F1C40F; margin: 0; text-align: center;"> 💰 Ventas y Caja</h3>
+        
+        <a href="/pos_web" class="btn-menu" style="background-color: #C0392B;">🧾 POS Web (Facturación)</a>
+        <a href="/historial_web" class="btn-menu" style="background-color: #16A085;">📄 Historial de Facturas</a>
+        <a href="/admin_dashboard" class="btn-menu" style="background-color: #D35400;">📊 Dashboard y Caja</a>
+        <a href="/proveedores_web" class="btn-menu" style="background-color: #9B59B6;">🏢 Proveedores (CXP)</a>
+        {% endif %}
+
+        <!-- SECCIÓN ADMINISTRATIVA PRIVADA (Solo Admin) -->
+        {% if session['rol'] == 'Admin' %}
+        <hr style="border: 1px solid #444; width: 100%; margin: 15px 0;">
+        <h3 style="color: #F1C40F; margin: 0; text-align: center;"> 👑 Control Gerencial</h3>
+        
+        <a href="/inventario_maestro" class="btn-menu" style="background-color: #27AE60;">📦 Inventario Maestro</a>
+        <a href="/nomina_web" class="btn-menu" style="background-color: #2980B9;">💰 Nómina y Comisiones</a>
+        
+        {% endif %}
+
+        <hr style="border: 1px solid #444; width: 100%; margin: 15px 0;">
+        <a href="/logout" class="btn-menu btn-salir">🚪 Cerrar Sesión</a>
+    </div>
+</body>
+</html>
